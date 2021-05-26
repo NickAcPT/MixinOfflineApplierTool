@@ -7,6 +7,7 @@ import org.spongepowered.asm.launch.platform.container.IContainerHandle
 import org.spongepowered.asm.mixin.MixinEnvironment
 import org.spongepowered.asm.service.*
 import org.spongepowered.asm.util.IConsumer
+import java.io.ByteArrayInputStream
 import java.io.InputStream
 import java.util.jar.JarFile
 
@@ -65,7 +66,7 @@ class MixinServiceImpl : MixinServiceAbstract() {
     override fun getResourceAsStream(name: String): InputStream? {
         MixinOfflineApplierTool.classPath.forEach { jarPath ->
             JarFile(jarPath).use { jar ->
-                jar.getJarEntry(name)?.let { jar.getInputStream(it) }?.let { return it }
+                jar.getJarEntry(name)?.let { jar.getInputStream(it) }?.let { return it.use { ByteArrayInputStream(it.readAllBytes()) } }
             }
         }
         return null

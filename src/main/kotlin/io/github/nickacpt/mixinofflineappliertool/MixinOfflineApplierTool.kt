@@ -45,6 +45,7 @@ object MixinOfflineApplierTool {
         output.mkdirs()
 
         val inputClasses = getJarClasses(input)
+        this.classPath.add(mixinInput.path)
         this.classPath.addAll(classPath.map { it.path })
         MixinBootstrap.init()
         MixinBootstrap.getPlatform().inject()
@@ -60,9 +61,9 @@ object MixinOfflineApplierTool {
                 println("Skipping ${it.name} - Mixin class")
                 return@forEach
             }
-            println("Processing ${it.name}")
             val modified = MixinTransformer.transform(it)
-            println("Finished processing ${it.name} - was modified: $modified")
+            if (modified)
+                println("Finished processing ${it.name}")
 
             if (modified) {
                 val writer = ClassWriter(ClassWriter.COMPUTE_MAXS)
@@ -70,7 +71,6 @@ object MixinOfflineApplierTool {
                 val outputBytes = writer.toByteArray()
                 File(output, it.name.replace('/', File.separatorChar) + ".class").also { it.parentFile.mkdirs() }
                     .writeBytes(outputBytes)
-                println("Saved modified ${it.name}")
             }
         }
     }
