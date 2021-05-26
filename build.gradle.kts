@@ -33,8 +33,8 @@ dependencies {
     implementation("org.ow2.asm:asm-commons:${asmVersion}")
 
     implementation("net.fabricmc:sponge-mixin:$mixinVersion") {
-        exclude(module= "launchwrapper")
-        exclude(module= "guava")
+        exclude(module = "launchwrapper")
+        exclude(module = "guava")
     }
 }
 
@@ -47,3 +47,13 @@ tasks {
         }
     }
 }
+
+publishing {
+    publications {
+        create<MavenPublication>("maven") {
+            from(components["java"])
+        }
+    }
+}
+
+

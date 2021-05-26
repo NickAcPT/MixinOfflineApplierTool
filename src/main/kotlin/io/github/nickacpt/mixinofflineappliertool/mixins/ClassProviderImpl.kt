@@ -13,10 +13,10 @@ class ClassProviderImpl(val classLoader: OfflineClassLoader) : IClassProvider {
     }
 
     override fun findClass(name: String?, initialize: Boolean): Class<*> {
-        return Class.forName(name, initialize, classLoader);
+        return Class.forName(name, initialize, javaClass.classLoader);
     }
 
     override fun findAgentClass(name: String?, initialize: Boolean): Class<*> {
-        return Class.forName(name, initialize, classLoader);
+        return Class.forName(name, initialize, javaClass.classLoader);
     }
 }

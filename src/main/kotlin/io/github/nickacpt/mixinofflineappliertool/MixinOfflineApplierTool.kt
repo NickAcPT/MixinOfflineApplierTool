@@ -15,10 +15,9 @@ object MixinOfflineApplierTool {
 
     var side: MixinSide = MixinSide.UNKNOWN
 
-    val loadedClasses = mutableMapOf<String, ClassNode>()
-    val miscResources = mutableMapOf<String, ByteArray>()
+    val classPath = mutableListOf<String>()
 
-    fun loadJar(file: File): List<ClassNode> {
+    fun getJarClasses(file: File): List<ClassNode> {
         val resultNodes = mutableListOf<ClassNode>()
         val jar = JarFile(file)
         jar.entries().asIterator().forEachRemaining {
@@ -27,27 +26,26 @@ object MixinOfflineApplierTool {
                 val node = ClassNode()
                 reader.accept(node, 0)
 
-                loadedClasses[node.name] = node
                 resultNodes.add(node)
-            } else {
-                miscResources[it.realName] = jar.getInputStream(it).use { it.readAllBytes() }
             }
         }
 
         return resultNodes
     }
 
-    fun apply(input: File, mixinInput: File, configurations: List<String>, side: MixinSide, output: File, classPath: List<File>) {
+    fun apply(
+        input: File,
+        mixinInput: File,
+        configurations: List<String>,
+        side: MixinSide,
+        output: File,
+        classPath: List<File>
+    ) {
         this.side = side
         output.mkdirs()
 
-        val inputClasses = loadJar(input)
-        if (input != mixinInput)
-            loadJar(mixinInput)
-        classPath.forEach {
-            loadJar(it)
-        }
-
+        val inputClasses = getJarClasses(input)
+        this.classPath.addAll(classPath.map { it.path })
         MixinBootstrap.init()
         MixinBootstrap.getPlatform().inject()
 
@@ -70,7 +68,8 @@ object MixinOfflineApplierTool {
                 val writer = ClassWriter(ClassWriter.COMPUTE_MAXS)
                 it.accept(writer)
                 val outputBytes = writer.toByteArray()
-                File(output, it.name.replace('/', File.separatorChar) + ".class").also { it.parentFile.mkdirs() }.writeBytes(outputBytes)
+                File(output, it.name.replace('/', File.separatorChar) + ".class").also { it.parentFile.mkdirs() }
+                    .writeBytes(outputBytes)
                 println("Saved modified ${it.name}")
             }
         }

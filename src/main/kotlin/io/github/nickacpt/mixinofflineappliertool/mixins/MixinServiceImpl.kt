@@ -1,14 +1,14 @@
 package io.github.nickacpt.mixinofflineappliertool.mixins
 
-import io.github.nickacpt.mixinofflineappliertool.MixinOfflineApplierTool.miscResources
+import io.github.nickacpt.mixinofflineappliertool.MixinOfflineApplierTool
 import io.github.nickacpt.mixinofflineappliertool.tool
 import org.spongepowered.asm.launch.platform.container.ContainerHandleVirtual
 import org.spongepowered.asm.launch.platform.container.IContainerHandle
 import org.spongepowered.asm.mixin.MixinEnvironment
 import org.spongepowered.asm.service.*
 import org.spongepowered.asm.util.IConsumer
-import java.io.ByteArrayInputStream
 import java.io.InputStream
+import java.util.jar.JarFile
 
 class MixinServiceImpl : MixinServiceAbstract() {
     companion object {
@@ -63,7 +63,12 @@ class MixinServiceImpl : MixinServiceAbstract() {
     }
 
     override fun getResourceAsStream(name: String): InputStream? {
-        return miscResources[name]?.let { ByteArrayInputStream(it) } ?: classLoader.getResourceAsStream(name)
+        MixinOfflineApplierTool.classPath.forEach { jarPath ->
+            JarFile(jarPath).use { jar ->
+                jar.getJarEntry(name)?.let { jar.getInputStream(it) }?.let { return it }
+            }
+        }
+        return null
     }
 
     private var phaseConsumer: IConsumer<MixinEnvironment.Phase>? = null
