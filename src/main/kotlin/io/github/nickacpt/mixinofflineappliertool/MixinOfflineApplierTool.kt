@@ -67,7 +67,7 @@ object MixinOfflineApplierTool {
                 println("Finished processing ${it.name}")
 
             if (modified) {
-                val writer = ClassWriter(ClassWriter.COMPUTE_MAXS)
+                val writer = ClassWriter(ClassWriter.COMPUTE_MAXS.or(ClassWriter.COMPUTE_FRAMES))
                 it.accept(writer)
                 val outputBytes = writer.toByteArray()
                 File(output, it.name.replace('/', File.separatorChar) + ".class").also { it.parentFile.mkdirs() }
