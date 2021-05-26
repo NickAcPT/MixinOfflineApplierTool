@@ -17,8 +17,8 @@ object MixinOfflineApplierTool {
 
     val classPath = mutableListOf<String>()
 
-    fun getJarClasses(file: File): List<ClassNode> {
-        val resultNodes = mutableListOf<ClassNode>()
+    fun getJarClasses(file: File): Map<String, ClassNode> {
+        val resultNodes = mutableMapOf<String, ClassNode>()
         val jar = JarFile(file)
         jar.entries().asIterator().forEachRemaining {
             if (it.realName.endsWith(".class")) {
@@ -26,7 +26,7 @@ object MixinOfflineApplierTool {
                 val node = ClassNode()
                 reader.accept(node, 0)
 
-                resultNodes.add(node)
+                resultNodes[it.realName] = node
             }
         }
 
@@ -40,7 +40,8 @@ object MixinOfflineApplierTool {
         side: MixinSide,
         output: File,
         classPath: List<File>
-    ) {
+    ): List<String> {
+        val modifiedEntries = mutableListOf<String>()
         this.side = side
         output.mkdirs()
 
@@ -56,7 +57,7 @@ object MixinOfflineApplierTool {
 
         MixinServiceImpl.gotoPhase(MixinEnvironment.Phase.DEFAULT)
 
-        inputClasses.forEach {
+        inputClasses.forEach { (entryName, it) ->
             if (input == mixinInput && it.invisibleAnnotations?.any { it.desc == mixinAnnotationDescriptor } == true) {
                 println("Skipping ${it.name} - Mixin class")
                 return@forEach
@@ -71,7 +72,11 @@ object MixinOfflineApplierTool {
                 val outputBytes = writer.toByteArray()
                 File(output, it.name.replace('/', File.separatorChar) + ".class").also { it.parentFile.mkdirs() }
                     .writeBytes(outputBytes)
+
+                modifiedEntries.add(entryName)
             }
         }
+
+        return modifiedEntries
     }
 }
