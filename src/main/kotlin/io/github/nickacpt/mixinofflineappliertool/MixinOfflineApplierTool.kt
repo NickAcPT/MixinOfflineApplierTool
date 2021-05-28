@@ -8,6 +8,7 @@ import org.objectweb.asm.tree.ClassNode
 import org.spongepowered.asm.launch.MixinBootstrap
 import org.spongepowered.asm.mixin.MixinEnvironment
 import org.spongepowered.asm.mixin.Mixins
+import org.spongepowered.asm.transformers.MixinClassWriter
 import java.io.File
 import java.util.jar.JarFile
 
@@ -67,7 +68,7 @@ object MixinOfflineApplierTool {
                 println("Finished processing ${it.name}")
 
             if (modified) {
-                val writer = ClassWriter(ClassWriter.COMPUTE_MAXS.or(ClassWriter.COMPUTE_FRAMES))
+                val writer = MixinClassWriter(ClassWriter.COMPUTE_MAXS.or(ClassWriter.COMPUTE_FRAMES))
                 it.accept(writer)
                 val outputBytes = writer.toByteArray()
                 File(output, it.name.replace('/', File.separatorChar) + ".class").also { it.parentFile.mkdirs() }
