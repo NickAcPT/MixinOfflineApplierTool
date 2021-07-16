@@ -18,7 +18,7 @@ object MixinOfflineApplierTool {
 
     val classPath = mutableListOf<String>()
 
-    fun getJarClasses(file: File): Map<String, ClassNode> {
+    fun getJarClasses(file: File): MutableMap<String, ClassNode> {
         val resultNodes = mutableMapOf<String, ClassNode>()
         val jar = JarFile(file)
         jar.entries().asIterator().forEachRemaining {
@@ -31,6 +31,7 @@ object MixinOfflineApplierTool {
             }
         }
 
+        jar.close()
         return resultNodes
     }
 
@@ -77,6 +78,8 @@ object MixinOfflineApplierTool {
                 modifiedEntries.add(entryName)
             }
         }
+        this.classPath.clear()
+        inputClasses.clear()
 
         return modifiedEntries
     }
