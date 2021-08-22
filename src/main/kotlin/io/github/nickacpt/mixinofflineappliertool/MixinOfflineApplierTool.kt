@@ -10,30 +10,14 @@ import org.spongepowered.asm.mixin.MixinEnvironment
 import org.spongepowered.asm.mixin.Mixins
 import org.spongepowered.asm.transformers.MixinClassWriter
 import java.io.File
-import java.util.jar.JarFile
+import java.nio.file.*
+import java.nio.file.attribute.BasicFileAttributes
 
 object MixinOfflineApplierTool {
 
     var side: MixinSide = MixinSide.UNKNOWN
 
     val classPath = mutableListOf<String>()
-
-    fun getJarClasses(file: File): MutableMap<String, ClassNode> {
-        val resultNodes = mutableMapOf<String, ClassNode>()
-        val jar = JarFile(file)
-        jar.entries().asIterator().forEachRemaining {
-            if (it.realName.endsWith(".class")) {
-                val reader = jar.getInputStream(it).use { ClassReader(it) }
-                val node = ClassNode()
-                reader.accept(node, 0)
-
-                resultNodes[it.realName] = node
-            }
-        }
-
-        jar.close()
-        return resultNodes
-    }
 
     fun apply(
         input: File,
@@ -46,41 +30,51 @@ object MixinOfflineApplierTool {
         val modifiedEntries = mutableListOf<String>()
         this.side = side
         output.mkdirs()
+        return FileSystems.newFileSystem(input.toPath()).use { inputFs ->
+            this.classPath.add(mixinInput.path)
+            this.classPath.addAll(classPath.map { it.path })
+            MixinBootstrap.init()
+            MixinBootstrap.getPlatform().inject()
 
-        val inputClasses = getJarClasses(input)
-        this.classPath.add(mixinInput.path)
-        this.classPath.addAll(classPath.map { it.path })
-        MixinBootstrap.init()
-        MixinBootstrap.getPlatform().inject()
-
-        configurations.forEach {
-            Mixins.addConfiguration(it)
-        }
-
-        MixinServiceImpl.gotoPhase(MixinEnvironment.Phase.DEFAULT)
-
-        inputClasses.forEach { (entryName, it) ->
-            if (input == mixinInput && it.invisibleAnnotations?.any { it.desc == mixinAnnotationDescriptor } == true) {
-                println("Skipping ${it.name} - Mixin class")
-                return@forEach
+            configurations.forEach {
+                Mixins.addConfiguration(it)
             }
-            val modified = MixinTransformer.transform(it)
-            if (modified)
-                println("Finished processing ${it.name}")
 
-            if (modified) {
-                val writer = MixinClassWriter(ClassWriter.COMPUTE_MAXS.or(ClassWriter.COMPUTE_FRAMES))
-                it.accept(writer)
-                val outputBytes = writer.toByteArray()
-                File(output, it.name.replace('/', File.separatorChar) + ".class").also { it.parentFile.mkdirs() }
-                    .writeBytes(outputBytes)
+            MixinServiceImpl.gotoPhase(MixinEnvironment.Phase.DEFAULT)
 
-                modifiedEntries.add(entryName)
-            }
+            Files.walkFileTree(inputFs.getPath("/"), object : SimpleFileVisitor<Path>() {
+                override fun visitFile(file: Path, attrs: BasicFileAttributes?): FileVisitResult {
+                    val name = file.toString()
+                    if (name.endsWith(".class")) {
+                        val reader = ClassReader(Files.readAllBytes(file))
+                        val node = ClassNode()
+                        reader.accept(node, 0)
+
+                        if (input == mixinInput && node.invisibleAnnotations?.any { it.desc == mixinAnnotationDescriptor } == true) {
+                            println("Skipping ${node.name} - Mixin class")
+                            return FileVisitResult.CONTINUE
+                        }
+                        val modified = MixinTransformer.transform(node)
+                        if (modified)
+                            println("Finished processing ${node.name}")
+
+                        if (modified) {
+                            val writer = MixinClassWriter(ClassWriter.COMPUTE_MAXS.or(ClassWriter.COMPUTE_FRAMES))
+                            node.accept(writer)
+                            val outputBytes = writer.toByteArray()
+                            File(output, node.name.replace('/', File.separatorChar) + ".class").also { it.parentFile.mkdirs() }
+                                .writeBytes(outputBytes)
+
+                            modifiedEntries.add(name)
+                        }
+
+                    }
+                    return FileVisitResult.CONTINUE
+                }
+            })
+            this.classPath.clear()
+
+            return@use modifiedEntries
         }
-        this.classPath.clear()
-        inputClasses.clear()
-
-        return modifiedEntries
     }
 }
